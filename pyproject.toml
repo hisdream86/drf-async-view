@@ -11,12 +11,14 @@ djangorestframework = "<=3.13.1"
 django = "^4.1.0"
 
 [tool.poetry.dev-dependencies]
-flake8 = "^3.9.2"
-black = "^22.6.0"
-pytest = "^6.2.4"
-pytest-mock = "^3.6.1"
-pytest-asyncio = "^0.16.0"
-pytest-cov = "^3.0.0"
+flake8 = "*"
+black = "*"
+mock = "*"
+pytest = "*"
+pytest-asyncio = "*"
+pytest-cov = "*"
+pytest-django = "*"
+pytest-mock = "*"
 
 [tool.black]
 line-length = 120
