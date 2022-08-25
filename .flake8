@@ -1,0 +1,9 @@
+[flake8]
+ignore = W391,E731,W503,E203
+max-line-length=120
+exclude = 
+    .git,
+    __pycache__,
+    cepextension/settings/*,
+    app/views/__init__.py
+    app/serializers/__init__.py

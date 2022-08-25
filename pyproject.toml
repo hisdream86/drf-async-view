@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "drf-async-view"
+version = "0.0.1"
+description = "AsyncAPIView allows you to use async handlers keeping the compatibility with django-rest-framework"
+authors = ["hisdream86 <hisdream86@gmail.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+djangorestframework = "<=3.13.1"
+django = "^4.1.0"
+
+[tool.poetry.dev-dependencies]
+flake8 = "^3.9.2"
+black = "^22.6.0"
+pytest = "^6.2.4"
+pytest-mock = "^3.6.1"
+pytest-asyncio = "^0.16.0"
+pytest-cov = "^3.0.0"
+
+[tool.black]
+line-length = 120
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
