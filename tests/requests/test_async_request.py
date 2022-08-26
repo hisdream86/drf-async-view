@@ -39,7 +39,7 @@ class AsyncAuthenticatorUnexpectedException(BaseAuthentication):
 
 class SyncAuthenticator(BaseAuthentication):
     def authenticate(self, request: AsyncRequest) -> Optional[Tuple[User, str]]:
-        pass
+        pass  # pragma: no cover
 
 
 @pytest.mark.asyncio
