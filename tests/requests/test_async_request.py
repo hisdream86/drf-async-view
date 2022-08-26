@@ -8,17 +8,12 @@ from rest_framework.exceptions import AuthenticationFailed
 from typing import Optional, Tuple
 
 from drfasyncview.requests import AsyncRequest
-
-
-class AsyncAuthenticatorReturnsNone(BaseAuthentication):
-    async def authenticate(self, request: AsyncRequest) -> Optional[Tuple[User, str]]:
-        pass
-
-
-class AsyncAuthenticatorReturnsAuthTuple(BaseAuthentication):
-    async def authenticate(self, request: AsyncRequest) -> Optional[Tuple[User, str]]:
-        await asyncio.sleep(0.05)
-        return (User(username="test-user"), "test-token")
+from tests.utils import (
+    AsyncAuthenticatorReturnsNone,
+    AsyncAuthenticatorReturnsAuthTuple,
+    AsyncAuthenticatorAuthenticationFailed,
+    SyncAuthenticator,
+)
 
 
 class AsyncAuthenticatorReturnsAuthTuple2(BaseAuthentication):
@@ -27,19 +22,9 @@ class AsyncAuthenticatorReturnsAuthTuple2(BaseAuthentication):
         return (User(username="test-user-2"), "test-token-2")
 
 
-class AsyncAuthenticatorAuthenticationFailed(BaseAuthentication):
-    async def authenticate(self, request: AsyncRequest) -> Optional[Tuple[User, str]]:
-        raise AuthenticationFailed(detail="Test authentication failed")
-
-
 class AsyncAuthenticatorUnexpectedException(BaseAuthentication):
     async def authenticate(self, request: AsyncRequest) -> Optional[Tuple[User, str]]:
         raise Exception("Test error")
-
-
-class SyncAuthenticator(BaseAuthentication):
-    def authenticate(self, request: AsyncRequest) -> Optional[Tuple[User, str]]:
-        pass  # pragma: no cover
 
 
 @pytest.mark.asyncio
