@@ -1,8 +1,7 @@
-import asyncio
 import pytest
 
 from django.http import HttpRequest
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, AnonymousUser
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 from typing import Optional, Tuple
@@ -16,19 +15,13 @@ from tests.utils import (
 )
 
 
-class AsyncAuthenticatorReturnsAuthTuple2(BaseAuthentication):
-    async def authenticate(self, request: AsyncRequest) -> Optional[Tuple[User, str]]:
-        await asyncio.sleep(0.01)
-        return (User(username="test-user-2"), "test-token-2")
-
-
 class AsyncAuthenticatorUnexpectedException(BaseAuthentication):
     async def authenticate(self, request: AsyncRequest) -> Optional[Tuple[User, str]]:
         raise Exception("Test error")
 
 
 @pytest.mark.asyncio
-async def test_async_request_with_authenticator_returns_none():
+async def test_async_authenticate():
     async_request = AsyncRequest(
         HttpRequest(),
         parsers=[],
@@ -39,13 +32,13 @@ async def test_async_request_with_authenticator_returns_none():
 
     await async_request.authenticate()
 
-    assert async_request.user is None
+    assert isinstance(async_request.user, AnonymousUser)
     assert async_request.auth is None
     assert async_request._authenticator is None
 
 
 @pytest.mark.asyncio
-async def test_async_request_with_authenticator_returns_auth_tuple():
+async def test_async_authenticate_returns_auth_tuple():
     async_request = AsyncRequest(
         HttpRequest(),
         parsers=[],
@@ -62,42 +55,7 @@ async def test_async_request_with_authenticator_returns_auth_tuple():
 
 
 @pytest.mark.asyncio
-async def test_async_request_with_multiple_authenticators():
-    async_request = AsyncRequest(
-        HttpRequest(),
-        parsers=[],
-        authenticators=[AsyncAuthenticatorReturnsNone(), AsyncAuthenticatorReturnsAuthTuple()],
-        negotiator=[],
-        parser_context={},
-    )
-
-    await async_request.authenticate()
-
-    assert async_request.user.username == "test-user"
-    assert async_request.auth == "test-token"
-    assert isinstance(async_request._authenticator, AsyncAuthenticatorReturnsAuthTuple)
-
-
-@pytest.mark.asyncio
-async def test_async_request_with_multiple_authenticators_returns_auth_tuple():
-    async_request = AsyncRequest(
-        HttpRequest(),
-        parsers=[],
-        authenticators=[AsyncAuthenticatorReturnsAuthTuple(), AsyncAuthenticatorReturnsAuthTuple2()],
-        negotiator=[],
-        parser_context={},
-    )
-
-    await async_request.authenticate()
-
-    # Take results from the prior authenticator
-    assert async_request.user.username == "test-user"
-    assert async_request.auth == "test-token"
-    assert isinstance(async_request._authenticator, AsyncAuthenticatorReturnsAuthTuple)
-
-
-@pytest.mark.asyncio
-async def test_async_request_with_authentication_failure():
+async def test_async_authenticate_authentication_failure():
     async_request = AsyncRequest(
         HttpRequest(),
         parsers=[],
@@ -113,7 +71,7 @@ async def test_async_request_with_authentication_failure():
 
 
 @pytest.mark.asyncio
-async def test_async_request_with_unexpected_exception():
+async def test_async_authenticate_with_unexpected_exception():
     async_request = AsyncRequest(
         HttpRequest(),
         parsers=[],
@@ -129,7 +87,7 @@ async def test_async_request_with_unexpected_exception():
 
 
 @pytest.mark.asyncio
-async def test_async_request_with_sync_function():
+async def test_sync_authenticate():
     async_request = AsyncRequest(
         HttpRequest(),
         parsers=[],
@@ -138,7 +96,25 @@ async def test_async_request_with_sync_function():
         parser_context={},
     )
 
-    with pytest.raises(TypeError) as exc_info:
-        await async_request.authenticate()
+    await async_request.authenticate()
 
-    assert str(exc_info.value) == "'authenticate()' should be async function"
+    assert isinstance(async_request.user, AnonymousUser)
+    assert async_request.auth is None
+    assert async_request._authenticator is None
+
+
+@pytest.mark.asyncio
+async def test_authenticate_with_hybrid_authenticators():
+    async_request = AsyncRequest(
+        HttpRequest(),
+        parsers=[],
+        authenticators=[AsyncAuthenticatorReturnsNone(), AsyncAuthenticatorReturnsAuthTuple(), SyncAuthenticator()],
+        negotiator=[],
+        parser_context={},
+    )
+
+    await async_request.authenticate()
+
+    assert async_request.user.username == "test-user"
+    assert async_request.auth == "test-token"
+    assert isinstance(async_request._authenticator, AsyncAuthenticatorReturnsAuthTuple)
