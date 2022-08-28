@@ -2,7 +2,7 @@ import pytest
 
 from django.http import HttpRequest
 from http import HTTPStatus
-from rest_framework.exceptions import AuthenticationFailed, PermissionDenied, Throttled
+from rest_framework.exceptions import AuthenticationFailed, Throttled
 from rest_framework.negotiation import DefaultContentNegotiation
 from rest_framework.parsers import JSONParser
 from rest_framework.renderers import JSONRenderer
@@ -12,7 +12,6 @@ from tests.utils import (
     AsyncAuthenticatorReturnsAuthTuple,
     AsyncAuthenticatorAuthenticationFailed,
     AsyncPermission,
-    AsyncPermissionDenied,
     AsyncThrottle,
     AsyncThrottleExceeded,
     TestVersioning,
@@ -71,17 +70,6 @@ async def test_async_api_view_initial_with_authentication_faiure():
         await view.initial(view.initialize_request(HttpRequest()))
     assert str(exc_info.value) == "Test authentication failed"
     assert exc_info.value.status_code == HTTPStatus.UNAUTHORIZED
-
-
-@pytest.mark.asyncio
-async def test_async_api_view_initial_with_permission_denied():
-    view = MyTestAsyncAPIView()
-    view.permission_classes = [AsyncPermissionDenied]
-
-    with pytest.raises(PermissionDenied) as exc_info:
-        await view.initial(view.initialize_request(HttpRequest()))
-    assert str(exc_info.value) == "You do not have permission to perform this action."
-    assert exc_info.value.status_code == HTTPStatus.FORBIDDEN
 
 
 @pytest.mark.asyncio
