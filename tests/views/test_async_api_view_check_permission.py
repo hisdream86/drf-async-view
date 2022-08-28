@@ -95,7 +95,7 @@ async def test_sync_check_permission(request: AsyncRequest, mocker: MockerFixtur
 @pytest.mark.asyncio
 async def test_sync_check_permission_with_permission_denied(request: AsyncRequest, mocker: MockerFixture):
     view = MyTestAsyncAPIView()
-    view.permission_classes = [SyncPermissionDenied]
+    view.permission_classes = [SyncPermission, SyncPermissionDenied]
     request = view.initialize_request(HttpRequest())
 
     with pytest.raises(PermissionDenied) as exc_info:
