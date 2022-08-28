@@ -14,6 +14,8 @@ from tests.utils import (
     AsyncPermission,
     AsyncPermissionDenied,
     AsyncThrottle,
+    SyncPermission,
+    SyncPermissionDenied,
     TestVersioning,
 )
 
@@ -29,7 +31,7 @@ class MyTestAsyncAPIView(AsyncAPIView):
 
 
 @pytest.mark.asyncio
-async def test_check_permission(request: AsyncRequest, mocker: MockerFixture):
+async def test_async_check_permission(request: AsyncRequest, mocker: MockerFixture):
     async def _side_effect(self, request: AsyncRequest, view: AsyncAPIView) -> bool:
         request.has_permission_called = True
         return True
@@ -45,7 +47,7 @@ async def test_check_permission(request: AsyncRequest, mocker: MockerFixture):
 
 
 @pytest.mark.asyncio
-async def test_check_permission_with_permission_denied():
+async def test_async_check_permission_with_permission_denied():
     view = MyTestAsyncAPIView()
     view.permission_classes = [AsyncPermissionDenied]
     request = view.initialize_request(HttpRequest())
@@ -58,7 +60,7 @@ async def test_check_permission_with_permission_denied():
 
 
 @pytest.mark.asyncio
-async def test_check_permission_with_unexpected_error(mocker: MockerFixture):
+async def test_async_check_permission_with_unexpected_error(mocker: MockerFixture):
     async def _side_effect(self, request: AsyncRequest, view: AsyncAPIView) -> bool:
         raise Exception("Test Exception")
 
@@ -75,7 +77,74 @@ async def test_check_permission_with_unexpected_error(mocker: MockerFixture):
 
 
 @pytest.mark.asyncio
-async def test_check_permission_without_permission(request: AsyncRequest):
+async def test_sync_check_permission(request: AsyncRequest, mocker: MockerFixture):
+    def _side_effect(self, request: AsyncRequest, view: AsyncAPIView) -> bool:
+        request.has_permission_called = True
+        return True
+
+    view = MyTestAsyncAPIView()
+    view.permission_classes = [SyncPermission]
+    request = view.initialize_request(HttpRequest())
+
+    mocker.patch("tests.utils.SyncPermission.has_permission", _side_effect)
+
+    assert await view.check_permissions(request) is None
+    assert request.has_permission_called is True
+
+
+@pytest.mark.asyncio
+async def test_sync_check_permission_with_permission_denied(request: AsyncRequest, mocker: MockerFixture):
+    view = MyTestAsyncAPIView()
+    view.permission_classes = [SyncPermissionDenied]
+    request = view.initialize_request(HttpRequest())
+
+    with pytest.raises(PermissionDenied) as exc_info:
+        await request.authenticate()
+        await view.check_permissions(request)
+    assert str(exc_info.value) == "You do not have permission to perform this action."
+    assert exc_info.value.status_code == HTTPStatus.FORBIDDEN
+
+
+@pytest.mark.asyncio
+async def test_sync_check_permission_with_unexpected_error(mocker: MockerFixture):
+    def _side_effect(self, request: AsyncRequest, view: AsyncAPIView) -> bool:
+        raise Exception("Test Exception")
+
+    view = MyTestAsyncAPIView()
+    view.permission_classes = [SyncPermission]
+    request = view.initialize_request(HttpRequest())
+
+    mocker.patch("tests.utils.SyncPermission.has_permission", _side_effect)
+
+    with pytest.raises(Exception) as exc_info:
+        await request.authenticate()
+        await view.check_permissions(request)
+    assert str(exc_info.value) == "Test Exception"
+
+
+@pytest.mark.asyncio
+async def test_check_permission_with_hybrid_permissions(request: AsyncRequest, mocker: MockerFixture):
+    async def _side_effect_async_permission(self, request: AsyncRequest, view: AsyncAPIView) -> bool:
+        request.has_async_permission_called = True
+        return True
+
+    def _side_effect_sync_permission(self, request: AsyncRequest, view: AsyncAPIView) -> bool:
+        request.has_sync_permission_called = True
+        return True
+
+    view = MyTestAsyncAPIView()
+    view.permission_classes = [AsyncPermission, SyncPermission]
+
+    mocker.patch("tests.utils.AsyncPermission.has_permission", _side_effect_async_permission)
+    mocker.patch("tests.utils.SyncPermission.has_permission", _side_effect_sync_permission)
+
+    assert await view.check_permissions(request) is None
+    assert request.has_async_permission_called is True
+    assert request.has_sync_permission_called is True
+
+
+@pytest.mark.asyncio
+async def test_check_permission_with_empty_permissions(request: AsyncRequest):
     view = MyTestAsyncAPIView()
     view.permission_classes = []
     assert await view.check_permissions(request) is None

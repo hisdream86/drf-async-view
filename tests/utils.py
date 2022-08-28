@@ -42,6 +42,16 @@ Permissions
 """
 
 
+class SyncPermission(BasePermission):
+    def has_permission(self, request: AsyncRequest, view: AsyncAPIView):
+        return True
+
+
+class SyncPermissionDenied(BasePermission):
+    def has_permission(self, request: AsyncRequest, view: AsyncAPIView):
+        return False
+
+
 class AsyncPermission(BasePermission):
     async def has_permission(self, request: AsyncRequest, view: AsyncAPIView):
         await asyncio.sleep(0.01)

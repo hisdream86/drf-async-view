@@ -1,8 +1,10 @@
 import asyncio
 
 from django.http import HttpRequest, HttpResponse
+from typing import Iterable, List
 from rest_framework.views import APIView
 from rest_framework import exceptions
+from rest_framework.permissions import BasePermission
 from http import HTTPStatus
 
 from drfasyncview.requests import AsyncRequest
@@ -43,6 +45,28 @@ class AsyncAPIView(APIView):
         await self.check_permissions(request)
         await self.check_throttles(request)
 
+    def _check_sync_permissions(self, request: AsyncRequest, permissions: Iterable[BasePermission]):
+        for permission in permissions:
+            if not permission.has_permission(request, self):
+                self.permission_denied(
+                    request, message=getattr(permission, "message", None), code=getattr(permission, "code", None)
+                )
+
+    async def _check_async_permissions(self, request: AsyncRequest, permissions: List[BasePermission]):
+        results = await asyncio.gather(
+            *(permission.has_permission(request, self) for permission in permissions), return_exceptions=True
+        )
+
+        for idx in range(len(permissions)):
+            if isinstance(results[idx], Exception):
+                raise results[idx]
+            elif not results[idx]:
+                self.permission_denied(
+                    request,
+                    message=getattr(permissions[idx], "message", None),
+                    code=getattr(permissions[idx], "code", None),
+                )
+
     async def check_permissions(self, request: AsyncRequest) -> None:
         """
         Check if the request should be permitted.
@@ -50,21 +74,16 @@ class AsyncAPIView(APIView):
         """
         permissions = self.get_permissions()
 
+        async_permissions, sync_permissions = [], []
+
         for permission in permissions:
-            if not asyncio.iscoroutinefunction(permission.has_permission):
-                raise TypeError("'has_permission()' should be async function")
+            if asyncio.iscoroutinefunction(permission.has_permission):
+                async_permissions.append(permission)
+            else:
+                sync_permissions.append(permission)
 
-        permission_check_results = await asyncio.gather(
-            *(permission.has_permission(request, self) for permission in permissions), return_exceptions=True
-        )
-
-        for idx in range(len(permissions)):
-            if isinstance(permission_check_results[idx], Exception):
-                raise permission_check_results[idx]
-            elif not permission_check_results[idx]:
-                self.permission_denied(
-                    request, message=getattr(permission, "message", None), code=getattr(permission, "code", None)
-                )
+        self._check_sync_permissions(request, sync_permissions)
+        await self._check_async_permissions(request, async_permissions)
 
     async def check_throttles(self, request):
         """
