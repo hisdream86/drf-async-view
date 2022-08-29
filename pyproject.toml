@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "drfasyncview"
-version = "0.0.1"
+version = "0.1.0"
 description = "AsyncAPIView allows you to use async handlers keeping the compatibility with django-rest-framework"
 authors = ["hisdream86 <hisdream86@gmail.com>"]
 license = "MIT"
