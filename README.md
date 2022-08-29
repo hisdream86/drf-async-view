@@ -19,9 +19,9 @@ $ pip install drfasyncview
 ```python
 import asyncio
 
-from django.http import HttpRequest, JsonResponse
 from django.contrib.auth.models import User
-from product.models import Product
+from django.db import models
+from django.http import HttpRequest, JsonResponse
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.permissions import BasePermission
 from rest_framework.throttling import BaseThrottle
@@ -37,15 +37,20 @@ class AsyncAuthentication(BaseAuthentication):
 
 
 class AsyncPermission(BasePermission):
-    async def has_permission(self, request: AsyncRequest, view: AsyncAPIView):
+    async def has_permission(self, request: AsyncRequest, view: AsyncAPIView) -> bool:
         await asyncio.sleep(0.01)
         return True
 
 
 class AsyncThrottle(BaseThrottle):
-    async def allow_request(self, request: AsyncRequest, view: AsyncAPIView):
+    async def allow_request(self, request: AsyncRequest, view: AsyncAPIView) -> bool:
         await asyncio.sleep(0.01)
         return True
+
+
+class Product(models.Model):
+    name = models.CharField(max_length=256, unique=True)
+    price = models.IntegerField()
 
 
 class ProductsView(AsyncAPIView):
@@ -53,7 +58,7 @@ class ProductsView(AsyncAPIView):
     permission_classes = [AsyncPermission]
     throttle_classes = [AsyncThrottle]
 
-    async def post(self, request: HttpRequest):
+    async def post(self, request: HttpRequest) -> JsonResponse:
         name = request.data["name"]
         price = request.data["price"]
 
