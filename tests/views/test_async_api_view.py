@@ -80,5 +80,5 @@ async def test_async_api_view_initial_with_throttled():
 
     with pytest.raises(Throttled) as exc_info:
         await view.initial(view.initialize_request(HttpRequest()))
-    assert str(exc_info.value) == f"Request was throttled. Expected available in {wait} second."
+    assert str(exc_info.value) == f"Request was throttled. Expected available in {wait} seconds."
     assert exc_info.value.status_code == HTTPStatus.TOO_MANY_REQUESTS

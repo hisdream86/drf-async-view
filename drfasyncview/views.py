@@ -1,10 +1,11 @@
 import asyncio
 
 from django.http import HttpRequest, HttpResponse
-from typing import Iterable, List
+from typing import Iterable, Generator, AsyncGenerator
 from rest_framework.views import APIView
 from rest_framework import exceptions
 from rest_framework.permissions import BasePermission
+from rest_framework.throttling import BaseThrottle
 from http import HTTPStatus
 
 from drfasyncview.requests import AsyncRequest
@@ -52,7 +53,7 @@ class AsyncAPIView(APIView):
                     request, message=getattr(permission, "message", None), code=getattr(permission, "code", None)
                 )
 
-    async def _check_async_permissions(self, request: AsyncRequest, permissions: List[BasePermission]):
+    async def _check_async_permissions(self, request: AsyncRequest, permissions: Iterable[BasePermission]):
         results = await asyncio.gather(
             *(permission.has_permission(request, self) for permission in permissions), return_exceptions=True
         )
@@ -85,33 +86,37 @@ class AsyncAPIView(APIView):
         self._check_sync_permissions(request, sync_permissions)
         await self._check_async_permissions(request, async_permissions)
 
-    async def check_throttles(self, request):
+    def _check_sync_throttles(
+        self, request: AsyncRequest, throttles: Iterable[BaseThrottle]
+    ) -> Generator[float, None, None]:
+        for throttle in throttles:
+            if not throttle.allow_request(request, self):
+                yield throttle.wait()
+
+    async def _check_async_throttles(
+        self, request: AsyncRequest, throttles: Iterable[BaseThrottle]
+    ) -> AsyncGenerator[float, None]:
+        for throttle in throttles:
+            if not await throttle.allow_request(request, self):
+                yield throttle.wait()
+
+    async def check_throttles(self, request: AsyncRequest) -> None:
         """
         Check if request should be throttled.
         Raises an appropriate exception if the request is throttled.
         """
         throttle_durations = []
         throttles = self.get_throttles()
+        async_throttles = filter(lambda t: asyncio.iscoroutinefunction(t.allow_request), throttles)
+        sync_throttles = filter(lambda t: not asyncio.iscoroutinefunction(t.allow_request), throttles)
 
-        for throttle in throttles:
-            if not asyncio.iscoroutinefunction(throttle.allow_request):
-                raise TypeError("'allow_request()' should be async function")
-
-        throttling_results = await asyncio.gather(
-            *(throttle.allow_request(request, self) for throttle in self.get_throttles()), return_exceptions=True
+        throttle_durations.extend(self._check_sync_throttles(request, sync_throttles))
+        throttle_durations.extend(
+            [duration async for duration in self._check_async_throttles(request, async_throttles)]
         )
 
-        for idx in range(len(throttles)):
-            if isinstance(throttling_results[idx], Exception):
-                raise throttling_results[idx]
-            elif not throttling_results[idx]:
-                throttle_durations.append(throttles[idx].wait())
-
         if throttle_durations:
-            # Filter out `None` values which may happen in case of config / rate
-            # changes, see #1438
             durations = [duration for duration in throttle_durations if duration is not None]
-
             duration = max(durations, default=None)
             self.throttled(request, duration)
 

@@ -14,6 +14,8 @@ from tests.utils import (
     AsyncPermission,
     AsyncThrottle,
     AsyncThrottleExceeded,
+    SyncThrottle,
+    SyncThrottleExceeded,
     TestVersioning,
 )
 
@@ -55,7 +57,7 @@ async def test_async_check_throttle_with_throttled(request: AsyncRequest, mocker
 
     with pytest.raises(Throttled) as exc_info:
         await view.check_throttles(request)
-    assert str(exc_info.value) == f"Request was throttled. Expected available in {wait} second."
+    assert str(exc_info.value) == f"Request was throttled. Expected available in {wait} seconds."
     assert exc_info.value.status_code == HTTPStatus.TOO_MANY_REQUESTS
 
 
@@ -73,6 +75,77 @@ async def test_async_check_throttle_with_unexpected_error(mocker: MockerFixture)
     with pytest.raises(Exception) as exc_info:
         await view.check_throttles(request)
     assert str(exc_info.value) == "Test Exception"
+
+
+@pytest.mark.asyncio
+async def test_sync_check_throttle(request: AsyncRequest, mocker: MockerFixture):
+    def _side_effect(self, request: AsyncRequest, view: AsyncAPIView) -> bool:
+        request.allow_request_called = True
+        return True
+
+    view = MyTestAsyncAPIView()
+    view.throttle_classes = [SyncThrottle]
+    request = view.initialize_request(HttpRequest())
+
+    mocker.patch("tests.utils.SyncThrottle.allow_request", _side_effect)
+
+    assert await view.check_throttles(request) is None
+    assert request.allow_request_called is True
+
+
+@pytest.mark.asyncio
+async def test_sync_check_throttle_with_throttled(request: AsyncRequest, mocker: MockerFixture):
+    view = MyTestAsyncAPIView()
+    view.throttle_classes = [SyncThrottleExceeded]
+    request = view.initialize_request(HttpRequest())
+    wait = SyncThrottleExceeded().wait()
+
+    with pytest.raises(Throttled) as exc_info:
+        await view.check_throttles(request)
+    assert str(exc_info.value) == f"Request was throttled. Expected available in {wait} seconds."
+    assert exc_info.value.status_code == HTTPStatus.TOO_MANY_REQUESTS
+
+
+@pytest.mark.asyncio
+async def test_sync_check_throttle_with_unexpected_error(request: AsyncRequest, mocker: MockerFixture):
+    def _side_effect(self, request: AsyncRequest, view: AsyncAPIView) -> bool:
+        raise Exception("Test Exception")
+
+    view = MyTestAsyncAPIView()
+    view.throttle_classes = [SyncThrottle]
+    request = view.initialize_request(HttpRequest())
+
+    mocker.patch("tests.utils.SyncThrottle.allow_request", _side_effect)
+
+    with pytest.raises(Exception) as exc_info:
+        await view.check_throttles(request)
+    assert str(exc_info.value) == "Test Exception"
+
+
+@pytest.mark.asyncio
+async def test_sync_check_throttle_with_hybrid_throttles(request: AsyncRequest, mocker: MockerFixture):
+    def _side_effect_async_throttle(self, request: AsyncRequest, view: AsyncAPIView) -> bool:
+        request.async_throttle_called = True
+        return True
+
+    def _side_effect_sync_throttle(self, request: AsyncRequest, view: AsyncAPIView) -> bool:
+        request.sync_throttle_called = True
+        return True
+
+    view = MyTestAsyncAPIView()
+    view.throttle_classes = [AsyncThrottle, SyncThrottle, AsyncThrottleExceeded, SyncThrottleExceeded]
+    request = view.initialize_request(HttpRequest())
+
+    mocker.patch("tests.utils.AsyncThrottle.allow_request", _side_effect_async_throttle)
+    mocker.patch("tests.utils.SyncThrottle.allow_request", _side_effect_sync_throttle)
+
+    wait = max((AsyncThrottleExceeded().wait(), SyncThrottleExceeded().wait()))
+
+    with pytest.raises(Exception) as exc_info:
+        await view.check_throttles(request)
+    assert request.async_throttle_called is True
+    assert request.sync_throttle_called is True
+    assert str(exc_info.value) == f"Request was throttled. Expected available in {wait} seconds."
 
 
 @pytest.mark.asyncio
