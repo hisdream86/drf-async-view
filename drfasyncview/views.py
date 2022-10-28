@@ -98,7 +98,7 @@ class AsyncAPIView(APIView):
                 raise TypeError("'allow_request()' should be async function")
 
         throttling_results = await asyncio.gather(
-            *(throttle.allow_request(request, self) for throttle in self.get_throttles())
+            *(throttle.allow_request(request, self) for throttle in self.get_throttles()), return_exceptions=True
         )
 
         for idx in range(len(throttles)):
