@@ -76,8 +76,9 @@ async def test_async_api_view_initial_with_authentication_faiure():
 async def test_async_api_view_initial_with_throttled():
     view = MyTestAsyncAPIView()
     view.throttle_classes = [AsyncThrottleExceeded]
+    wait = AsyncThrottleExceeded().wait()
 
     with pytest.raises(Throttled) as exc_info:
         await view.initial(view.initialize_request(HttpRequest()))
-    assert str(exc_info.value) == "Request was throttled."
+    assert str(exc_info.value) == f"Request was throttled. Expected available in {wait} second."
     assert exc_info.value.status_code == HTTPStatus.TOO_MANY_REQUESTS

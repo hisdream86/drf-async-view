@@ -70,13 +70,16 @@ Throttle
 
 
 class AsyncThrottle(BaseThrottle):
-    async def allow_request(self, request: AsyncRequest, view: AsyncAPIView):
+    async def allow_request(self, request: AsyncRequest, view: AsyncAPIView) -> bool:
         return True
 
 
 class AsyncThrottleExceeded(BaseThrottle):
-    async def allow_request(self, request: AsyncRequest, view: AsyncAPIView):
+    async def allow_request(self, request: AsyncRequest, view: AsyncAPIView) -> bool:
         return False
+
+    def wait(self) -> int:
+        return 1
 
 
 """
