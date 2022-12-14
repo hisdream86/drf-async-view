@@ -10,7 +10,7 @@ keywords = ["django", "djangorestframework", "async"]
 
 
 [tool.poetry.dependencies]
-python = ">=3.8,<=3.10"
+python = ">=3.8,<3.12"
 djangorestframework = ">=3.13.0"
 django = ">=4.1.0"
 
